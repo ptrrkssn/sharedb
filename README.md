@@ -1,4 +1,7 @@
-# sharedb 1.1 - Peter Eriksson <pen@lysator.liu.se>, 2023-07-23
+# sharedb
+
+Version 1.1 (2023-07-23)
+Author: Peter Eriksson <pen@lysator.liu.se>
 
 The files in this repo can be used to implement DB-based (B-Tree)
 NFS exports for ZFS and mountd for FreeBSD 13+.
