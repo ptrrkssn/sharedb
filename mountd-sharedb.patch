@@ -114,7 +114,7 @@
  		/*
  		 * Set defaults.
  		 */
-@@ -1585,27 +1643,59 @@
+@@ -1585,27 +1643,58 @@
  		ep = (struct exportlist *)NULL;
  		dirp = NULL;
  
@@ -142,7 +142,6 @@
 +					len = strlen(dat_rest);
 +					nextfield(&cp, &endcp);
 +				}
-+				syslog(LOG_ERR, "Got V4 DB entry: cp=%s endcp=%s", cp, endcp);
 +			}
 +		} else {
 +			if (debug)
