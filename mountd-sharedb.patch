@@ -1,5 +1,5 @@
 --- usr.sbin/mountd/mountd.c.ORIG	2023-07-19 00:12:56.318540000 +0200
-+++ usr.sbin/mountd/mountd.c	2023-07-23 13:40:07.478670000 +0200
++++ usr.sbin/mountd/mountd.c	2023-07-24 00:03:18.613466000 +0200
 @@ -85,6 +85,10 @@
  #include <stdlib.h>
  #include <string.h>
@@ -114,7 +114,7 @@
  		/*
  		 * Set defaults.
  		 */
-@@ -1585,27 +1643,58 @@
+@@ -1585,27 +1643,59 @@
  		ep = (struct exportlist *)NULL;
  		dirp = NULL;
  
@@ -136,11 +136,12 @@
 +
 +				if (dat_path[3]) {
 +					cp += 3;
-+					nextfield(&cp, &endcp);
++					len -= 3;
++					endcp = dat_rest;
 +				} else {
 +					cp = dat_rest;
-+					len = strlen(dat_rest);
 +					nextfield(&cp, &endcp);
++					len = endcp-cp;
 +				}
 +			}
 +		} else {
@@ -186,7 +187,33 @@
  		tgrp = grp = get_grp();
  		while (len > 0) {
  			if (len > MNTNAMLEN) {
-@@ -2103,13 +2193,33 @@
+@@ -1627,8 +1717,13 @@
+ 				goto nextline;
+ 			    }
+ 			} else if (*cp == '/') {
++#if 0
+ 			    savedc = *endcp;
+ 			    *endcp = '\0';
++#else
++			    savedc = cp[len];
++			    cp[len] = '\0';
++#endif
+ 			    if (v4root_phase > 1) {
+ 				    if (dirp != NULL) {
+ 					getexp_err(ep, tgrp, "Multiple V4 dirs");
+@@ -1705,7 +1800,11 @@
+ 				    "symbolic link in export path or statfs failed");
+ 				goto nextline;
+ 			    }
++#if 0
+ 			    *endcp = savedc;
++#else
++			    cp[len] = savedc;
++#endif
+ 			} else {
+ 			    savedc = *endcp;
+ 			    *endcp = '\0';
+@@ -2103,13 +2202,33 @@
  	 */
  	done = 0;
  	for (i = 0; exnames[i] != NULL; i++) {
@@ -221,7 +248,26 @@
  		fclose(exp_file);
  		done++;
  	}
-@@ -3498,6 +3608,7 @@
+@@ -2441,11 +2560,14 @@
+ 	struct grouplist *tgrp;
+ 
+ 	if (!(opt_flags & OP_QUIET)) {
+-		if (reason != NULL)
+-			syslog(LOG_ERR, "bad exports list line '%s': %s", line,
+-			    reason);
++		if (cur_line >= 0)
++			syslog(LOG_ERR, "%s#%d: bad exports list line '%s'%s%s",
++			       cur_file, cur_line, line,
++			       reason ? ": " : "", reason ? reason : "");
+ 		else
+-			syslog(LOG_ERR, "bad exports list line '%s'", line);
++			syslog(LOG_ERR, "%s: %s: bad exports data '%s'%s%s",
++			       cur_file, dat_path, dat_rest,
++			       reason ? ": " : "", reason ? reason : "");
+ 	}
+ 	if (ep && (ep->ex_flag & EX_LINKED) == 0)
+ 		free_exp(ep);
+@@ -3498,6 +3620,7 @@
  	do {
  		if ((p = fgetln(exp_file, &len)) == NULL)
  			return (0);
