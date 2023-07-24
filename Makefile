@@ -53,10 +53,10 @@ mountd-sharedb.patch: $(SRCDIR)/$(MOUNTDSRCDIR)/mountd.c
 apply-patches: patch-zfs patch-mountd
 
 patch-zfs:
-	patch -sNd $(SRCDIR) <zfs-sharedb.patch
+	patch -sNd $(SRCDIR) <"Patches/zfs-`git --git-dir=$(SRCDIR)/.git branch --show-current`.patch"
 
 patch-mountd:
-	patch -sNd $(SRCDIR) <mountd-sharedb.patch
+	patch -sNd $(SRCDIR) <"Patches/mountd-`git --git-dir=$(SRCDIR)/.git branch --show-current`.patch"
 
 
 
