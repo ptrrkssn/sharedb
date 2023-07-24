@@ -80,7 +80,7 @@ $(LIBZFSLIBDIR)/libzfs.so.4: $(OBJDIR)/$(LIBZFSOBJDIR)/libzfs.so.4
 	install -b $(OBJDIR)/$(LIBZFSOBJDIR)/libzfs.so.4 $(LIBZFSLIBDIR)
 
 
-install-mountd: $(OBJDIR)/$(MOUNTDOBJDIR)/mountd
+install-mountd: $(MOUNTDBINDIR)/mountd
 
 $(MOUNTDBINDIR)/mountd: $(OBJDIR)/$(MOUNTDOBJDIR)/mountd
 	install -b $(OBJDIR)/$(MOUNTDOBJDIR)/mountd $(MOUNTDBINDIR)
