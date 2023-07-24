@@ -1,0 +1,61 @@
+.\" Manual page for share
+.\" Contact pen@lysator.liu.se to correct errors or typos.
+.TH share 1 "24 July 2023" "1.1" "share man page"
+
+.SH NAME
+share \- manipulate NFS exports DB files
+
+.SH SYNOPSIS
+.B share
+.RI "[" "<option>*" "]"
+.RI "[" "<mountpoint>" ""
+.RI "[" "<exports-flags>*" "]"
+
+.SH DESCRIPTION
+.B share
+is a tool to manipulate NFS exports via DB files
+
+.SH OPTIONS
+.TP
+.B "-h"
+Display usage information.
+.TP
+.B "-p"
+Increase print level
+.TP
+.B "-c"
+Create ShareDB file
+.TP
+.B "-a"
+Append exports flags to share
+.TP
+.B "-r"
+Remove share / shares
+.TP
+.B "-u"
+Unlocked database access (unsafe!)
+.TP
+.B "-s"
+Send signal to mountd
+.B "-d"
+Increase debugging level
+.TP
+.B "-D <path>"
+ShareDB path (default: /etc/zfs/exports.db)O
+.TP
+.B "-P <path>"
+Mountd pidfile path (default: /var/run/mountd.pid)
+
+.SH SEE ALSO
+.TP
+exports(5), mountd(8), zfs(8)
+
+.SH BUGS
+No known bugs
+
+.SH SOURCE
+https://github.com/ptrrkssn/share
+
+.SH AUTHOR
+Peter Eriksson <pen@lysator.liu.se>
+

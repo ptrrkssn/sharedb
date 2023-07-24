@@ -5,8 +5,6 @@
  *
  * Author: Peter Eriksson <pen@lysator.liu.se>
  *
- * Version: 1.0.3 (2023-07-21)
- *
  * ShareDB data format (BTREE):
  *   key  = mountpoint (without trailing NUL charactero)
  *   data = mount options (per /etc/exports), multi-mountpoint options separated by NUL
@@ -25,6 +23,7 @@
 #include <limits.h>
 
 
+char *version = "1.1 (2023-07-24)";
 char *path_sharedb = "/etc/zfs/exports.db";
 char *path_pidfile = "/var/run/mountd.pid";
 
@@ -33,8 +32,10 @@ int f_print = 0;
 int f_signal = 0;
 int f_add = 0;
 int f_create = 0;
+int f_truncate = 0;
 int f_remove = 0;
 int f_locked = 1;
+int f_verbose = 0;
 
 
 void
@@ -189,25 +190,28 @@ main(int argc,
 	int i, j, rc;
 	char *buf;
 	int f_mode = O_RDONLY;
+	int nm = 0;
   
 
 	for (i = 1; i < argc && argv[i][0] == '-'; i++) {
 		for (j = 1; argv[i][j]; j++) {
 			switch (argv[i][j]) {
 			case 'h':
-				printf("Usage:\n\t%s [<options>] [<dir> <opts> [... <opts>]]\n\n",
+				printf("Usage:\n\t%s [<options>] [<mountpoint> <flags> [... <flags>]]\n\n",
 				       argv[0]);
 				puts("Options:");
 				puts("\t-h             Display this usage information");
+				puts("\t-v             Increase verbosity level");
 				puts("\t-d             Increase debugging level");
-				puts("\t-p             Increase print level");
-				puts("\t-c             Create ShareDB file");
+				puts("\t-p             Print DB entries");
+				puts("\t-c             Create ShareDB file if not existing");
+				puts("\t-z             Truncate ShareDB file to zero size");
 				puts("\t-a             Append share options to share");
 				puts("\t-r             Remove share / share options");
 				puts("\t-u             Unlocked database access (unsafe!)");
 				puts("\t-s             Send signal to mountd");
-				puts("\t-D <path>      ShareDB path");
-				puts("\t-P <path>      Mountd pidfile path");
+				printf("\t-D <path>      ShareDB path [%s]\n", path_sharedb);
+				printf("\t-P <path>      Mountd pidfile path [%s]\n", path_pidfile);
 				exit(0);
 
 			case 'd':
@@ -217,13 +221,21 @@ main(int argc,
 			case 'u':
 				f_locked = 0;
 				break;
-	      
+
+			case 'v':
+				f_verbose++;
+				break;
+				
 			case 'p':
 				f_print++;
 				break;
 
 			case 'c':
 				f_create++;
+				break;
+	
+			case 'z':
+				f_truncate++;
 				break;
 	
 			case 'a':
@@ -271,6 +283,9 @@ main(int argc,
 	NextArg:;
 	}
 
+	if (f_verbose)
+		fprintf(stderr, "[share, version %s]\n", version);
+	
 	if (f_create || f_add || f_remove || i+1 < argc) {
 		f_mode = O_RDWR;
 		if (f_locked)
@@ -280,7 +295,9 @@ main(int argc,
 	
 	if (f_create)
 		f_mode |= O_CREAT;
-
+	if (f_truncate)
+		f_mode |= O_TRUNC;
+		
 	while ((db = dbopen(path_sharedb, f_mode|O_NONBLOCK, 0600, DB_BTREE, NULL)) == NULL &&
 	       errno == EWOULDBLOCK) {
 		fprintf(stderr, "%s: Notice: %s: Database locked, retrying in 1s\n",
@@ -370,28 +387,36 @@ main(int argc,
 	if (f_signal)
 		signal_mountd();
   
-	if (f_print) {
+	if (f_print || f_verbose) {
 		rc = db->seq(db, &k, &d, R_FIRST);
+		nm = 0;
 		while (rc == 0) {
 			unsigned int p = 0;
+			++nm;
 
-			for (p = 0; p < d.size; p++) {
-				char *buf = (char *) d.data;
-				int len = strnlen(buf+p, d.size-p);
-	
-				printf("%.*s\t%.*s\n", (int) k.size, (char *) k.data, len, buf+p);
-				p += len;
-			}
-			if (f_debug) {
-				print_data(k.size, k.data);
-				putchar('\n');
-				print_data(d.size, d.data);
-				putchar('\n');
+			if (f_print) {
+				for (p = 0; p < d.size; p++) {
+					char *buf = (char *) d.data;
+					int len = strnlen(buf+p, d.size-p);
+					
+					printf("%.*s\t%.*s\n", (int) k.size, (char *) k.data, len, buf+p);
+					p += len;
+				}
+				if (f_debug) {
+					print_data(k.size, k.data);
+					putchar('\n');
+					print_data(d.size, d.data);
+					putchar('\n');
+				}
 			}
       
 			rc = db->seq(db, &k, &d, R_NEXT);
 		}
-	} 
+
+	}
+	
+	if (f_verbose)
+		fprintf(stderr, "[%s: %d exported mountpoints]\n", path_sharedb, nm);
 
 	db->close(db);
 	exit(0);

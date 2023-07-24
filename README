@@ -1,7 +1,7 @@
 # sharedb
 
-Version 1.1 (2023-07-23)
-Author: Peter Eriksson <pen@lysator.liu.se>
+Version: 1.1 (2023-07-24)
+Author:  Peter Eriksson <pen@lysator.liu.se>
 
 The files in this repo can be used to implement DB-based (B-Tree)
 NFS exports for ZFS and mountd for FreeBSD 13+.
@@ -18,6 +18,9 @@ The project consists of three parts:
 1. share.c - a small CLI utility to update/view sharedb files
 2. zfs-sharedb.patch - a patch for libshare in ZFS to make it update DB files
 3. mountd.patch - a patch for mountd to make it read DB files
+
+There are two versions of the patch (13.2/zfs-sharedb.patch for 13.2-RELEASE)
+and zfs-sharedb.patch for CURRENT.
 
 
 The patch to zfs enables updating of the database files when
@@ -55,9 +58,8 @@ There is no need to use makemap for /etc/zfs/exports.db if you use the
 zfs patch though.
 
 
-The share CLI too can be used to view and update the DB files. It's still
-a work in progress. Run it with "-h" for usage information. A man page will
-be written soon...
+The 'share' CLI utility too can be used to view and update the DB files.
+It's still a work in progress. Run it with "-h" for usage information. 
 
 - Peter
 
