@@ -1,6 +1,8 @@
---- usr.sbin/mountd/mountd.c.ORIG	2023-07-19 00:12:56.318540000 +0200
-+++ usr.sbin/mountd/mountd.c	2023-07-24 00:03:18.613466000 +0200
-@@ -85,6 +85,10 @@
+diff --git a/usr.sbin/mountd/mountd.c b/usr.sbin/mountd/mountd.c
+index d985dd00a..0644e7e35 100644
+--- a/usr.sbin/mountd/mountd.c
++++ b/usr.sbin/mountd/mountd.c
+@@ -85,6 +85,10 @@ __FBSDID("$FreeBSD$");
  #include <stdlib.h>
  #include <string.h>
  #include <unistd.h>
@@ -11,7 +13,7 @@
  #include "pathnames.h"
  #include "mntopts.h"
  
-@@ -233,7 +237,7 @@
+@@ -233,7 +237,7 @@ static void	free_exp(struct exportlist *);
  static void	free_grp(struct grouplist *);
  static void	free_host(struct hostlist *);
  static void	free_v4rootexp(void);
@@ -20,7 +22,7 @@
  static void	get_exportlist(int);
  static void	insert_exports(struct exportlist *, struct exportlisthead *);
  static void	free_exports(struct exportlisthead *);
-@@ -1541,15 +1545,76 @@
+@@ -1541,15 +1545,76 @@ xdr_explist_brief(XDR *xdrsp, caddr_t cp)
  	return xdr_explist_common(xdrsp, cp, 1);
  }
  
@@ -98,7 +100,7 @@
  {
  	struct exportlist *ep;
  	struct grouplist *grp, *tgrp, *savgrp;
-@@ -1563,14 +1628,7 @@
+@@ -1563,14 +1628,7 @@ get_exportlist_one(int passno)
  	v4root_phase = 0;
  	anon.cr_groups = NULL;
  	dirhead = (struct dirlist *)NULL;
@@ -114,7 +116,7 @@
  		/*
  		 * Set defaults.
  		 */
-@@ -1585,27 +1643,59 @@
+@@ -1585,27 +1643,59 @@ get_exportlist_one(int passno)
  		ep = (struct exportlist *)NULL;
  		dirp = NULL;
  
@@ -187,7 +189,7 @@
  		tgrp = grp = get_grp();
  		while (len > 0) {
  			if (len > MNTNAMLEN) {
-@@ -1627,8 +1717,13 @@
+@@ -1627,8 +1717,13 @@ get_exportlist_one(int passno)
  				goto nextline;
  			    }
  			} else if (*cp == '/') {
@@ -201,7 +203,7 @@
  			    if (v4root_phase > 1) {
  				    if (dirp != NULL) {
  					getexp_err(ep, tgrp, "Multiple V4 dirs");
-@@ -1705,7 +1800,11 @@
+@@ -1705,7 +1800,11 @@ get_exportlist_one(int passno)
  				    "symbolic link in export path or statfs failed");
  				goto nextline;
  			    }
@@ -213,7 +215,7 @@
  			} else {
  			    savedc = *endcp;
  			    *endcp = '\0';
-@@ -2103,13 +2202,33 @@
+@@ -2103,13 +2202,33 @@ read_exportfile(int passno)
  	 */
  	done = 0;
  	for (i = 0; exnames[i] != NULL; i++) {
@@ -248,7 +250,7 @@
  		fclose(exp_file);
  		done++;
  	}
-@@ -2441,11 +2560,14 @@
+@@ -2441,11 +2560,14 @@ getexp_err(struct exportlist *ep, struct grouplist *grp, const char *reason)
  	struct grouplist *tgrp;
  
  	if (!(opt_flags & OP_QUIET)) {
@@ -267,7 +269,7 @@
  	}
  	if (ep && (ep->ex_flag & EX_LINKED) == 0)
  		free_exp(ep);
-@@ -3498,6 +3620,7 @@
+@@ -3498,6 +3620,7 @@ get_line(void)
  	do {
  		if ((p = fgetln(exp_file, &len)) == NULL)
  			return (0);

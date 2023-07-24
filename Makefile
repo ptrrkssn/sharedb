@@ -1,11 +1,15 @@
 # Makefile
 
+NCPU=8
+
+PREFIX=/usr/local
+
 SRCDIR=/usr/src
 OBJDIR=/usr/obj/$(SRCDIR)
 
 SHAREOBJS=share.o
-SHAREBINDIR=/usr/local/sbin
-SHAREMANDIR=/usr/local/man/man1
+SHAREBINDIR=$(PREFIX)/sbin
+SHAREMANDIR=$(PREFIX)/man/man1
 
 LIBZFSSRCDIR=sys/contrib/openzfs/lib/libshare/os/freebsd
 LIBZFSOBJDIR=amd64.amd64/cddl/lib/libzfs
@@ -15,10 +19,10 @@ MOUNTDSRCDIR=usr.sbin/mountd
 MOUNTDOBJDIR=amd64.amd64/usr.sbin/mountd
 MOUNTDBINDIR=/usr/sbin
 
-
 CFLAGS=-O -Wall
 
-all: share
+
+all: share mountd
 
 
 share: $(SHAREOBJS)
@@ -53,29 +57,28 @@ mountd-sharedb.patch: $(SRCDIR)/$(MOUNTDSRCDIR)/mountd.c
 apply-patches: patch-zfs patch-mountd
 
 patch-zfs:
-	patch -sNd $(SRCDIR) <"Patches/zfs-`git --git-dir=$(SRCDIR)/.git branch --show-current`.patch"
+	(cd $(SRCDIR)/$(LIBZFSSRCDIR) && git checkout nfs.c) && \
+	patch -sNd $(SRCDIR) <"Patches/zfs-`git --git-dir=$(SRCDIR)/.git branch --show-current|tr '/' '-'`.patch"
 
 patch-mountd:
-	patch -sNd $(SRCDIR) <"Patches/mountd-`git --git-dir=$(SRCDIR)/.git branch --show-current`.patch"
+	(cd $(SRCDIR)/$(MOUNTDSRCDIR) && git checkout mountd.c) && \
+	patch -sNd $(SRCDIR) <"Patches/mountd-`git --git-dir=$(SRCDIR)/.git branch --show-current|tr '/' '-'`.patch"
 
 
-
-buildworld:
-	cd $(SRCDIR) && make -DNO_CLEAN -j20 buildworld
-
-
-libzfs.so.4 $(OBJDIR)/$(LIBZFSOBJDIR)/libzfs.so.4: $(SRCDIR)/$(LIBZFSSRCDIR)/nfs.c
-	cd $(SRCDIR) && make -DNO_CLEAN -j20 buildworld
+build: mountd libzfs.so.4
 
 mountd $(OBJDIR)/$(MOUNTDOBJDIR)/mountd: $(SRCDIR)/$(MOUNTDSRCDIR)/mountd.c
 	cd $(SRCDIR)/$(MOUNTDSRCDIR) && make
 
+libzfs.so.4 $(OBJDIR)/$(LIBZFSOBJDIR)/libzfs.so.4: $(SRCDIR)/$(LIBZFSSRCDIR)/nfs.c
+	cd $(SRCDIR) && make -DNO_CLEAN -j$(NCPU) buildworld
 
 
 install-libzfs: $(LIBZFSLIBDIR)/libzfs.so.4
 
 $(LIBZFSLIBDIR)/libzfs.so.4: $(OBJDIR)/$(LIBZFSOBJDIR)/libzfs.so.4
 	install -b $(OBJDIR)/$(LIBZFSOBJDIR)/libzfs.so.4 $(LIBZFSLIBDIR)
+
 
 install-mountd: $(OBJDIR)/$(MOUNTDOBJDIR)/mountd
 

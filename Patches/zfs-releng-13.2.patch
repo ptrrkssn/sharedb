@@ -1,11 +1,13 @@
---- sys/contrib/openzfs/lib/libshare/os/freebsd/nfs.c.ORIG	2023-07-19 23:46:53.058484000 +0200
-+++ sys/contrib/openzfs/lib/libshare/os/freebsd/nfs.c	2023-07-23 00:08:04.561735000 +0200
-@@ -52,7 +52,18 @@
+diff --git a/sys/contrib/openzfs/lib/libshare/os/freebsd/nfs.c b/sys/contrib/openzfs/lib/libshare/os/freebsd/nfs.c
+index 97092bdc0..7c6594207 100644
+--- a/sys/contrib/openzfs/lib/libshare/os/freebsd/nfs.c
++++ b/sys/contrib/openzfs/lib/libshare/os/freebsd/nfs.c
+@@ -52,6 +52,17 @@ __FBSDID("$FreeBSD$");
  #define	MAXLINESIZE	(PATH_MAX + OPTSSIZE)
  #define	ZFS_EXPORTS_FILE	"/etc/zfs/exports"
  #define	ZFS_EXPORTS_LOCK	ZFS_EXPORTS_FILE".lock"
 +#define ZFS_EXPORTSDB_FILE	"/etc/zfs/exports.db"
- 
++
 +#include <sys/types.h>
 +#include <db.h>
 +#include <fcntl.h>
@@ -15,11 +17,10 @@
 +static DB *sharedb = NULL;
 +static int sharedb_wrmode = 0;
 +
-+
+ 
  static sa_fstype_t *nfs_fstype;
  
- static int nfs_lock_fd = -1;
-@@ -166,13 +177,18 @@
+@@ -166,13 +177,18 @@ translate_opts(const char *shareopts)
  	char *o, *s = NULL;
  	unsigned int i;
  	size_t len;
@@ -39,7 +40,7 @@
  		for (i = 0; known_opts[i] != NULL; i++) {
  			len = strlen(known_opts[i]);
  			if (strncmp(known_opts[i], o, len) == 0 &&
-@@ -182,7 +198,9 @@
+@@ -182,7 +198,9 @@ translate_opts(const char *shareopts)
  			}
  		}
  		strlcat(newopts, o, sizeof (newopts));
@@ -49,7 +50,7 @@
  	}
  	return (newopts);
  }
-@@ -272,12 +290,106 @@
+@@ -272,11 +290,105 @@ nfs_copy_entries(char *filename, const char *mountpoint)
  	return (error);
  }
  
@@ -108,7 +109,7 @@
 +	char *filename = NULL;
 +	char *shareopts = FSINFO(impl_share, nfs_fstype)->shareopts;
 +	int res;
- 
++
 +	if (strcmp(shareopts, "on") == 0)
 +		shareopts = "";
 +
@@ -153,11 +154,10 @@
 +		
 +		return (SA_OK);
 +	}
-+
+ 
  	if ((filename = nfs_init_tmpfile()) == NULL)
  		return (SA_SYSTEM_ERR);
- 
-@@ -305,9 +417,6 @@
+@@ -305,9 +417,6 @@ nfs_enable_share(sa_share_impl_t impl_share)
  		nfs_exports_unlock();
  		return (SA_SYSTEM_ERR);
  	}
@@ -167,12 +167,12 @@
  
  	if (fprintf(fp, "%s\t%s\n", impl_share->sa_mountpoint,
  	    translate_opts(shareopts)) < 0) {
-@@ -337,7 +446,45 @@
+@@ -337,6 +446,44 @@ nfs_disable_share(sa_share_impl_t impl_share)
  {
  	int error;
  	char *filename = NULL;
 +	int res;
- 
++
 +	if (sharedb && !sharedb_wrmode) {
 +		/* ShareDB open for ReadOnly, reopen for ReadWrite */
 +		res = sharedb->close(sharedb);
@@ -209,11 +209,10 @@
 +		
 +		return (SA_OK);
 +	}
-+
+ 
  	if ((filename = nfs_init_tmpfile()) == NULL)
  		return (SA_SYSTEM_ERR);
- 
-@@ -364,12 +511,38 @@
+@@ -364,12 +511,38 @@ nfs_disable_share(sa_share_impl_t impl_share)
  static boolean_t
  nfs_is_shared(sa_share_impl_t impl_share)
  {
@@ -236,8 +235,7 @@
 +	if (sharedb) {
 +		DBT k, d;
 +		int res;
- 
--	FILE *fp = fopen(ZFS_EXPORTS_FILE, "re");
++
 +		k.data = mntpoint;
 +		k.size = mntlen;
 +		
@@ -249,18 +247,18 @@
 +			return (B_TRUE);
 +		return (B_FALSE);
 +	}
-+
+ 
+-	FILE *fp = fopen(ZFS_EXPORTS_FILE, "re");
 +	fp = fopen(ZFS_EXPORTS_FILE, "re");
  	if (fp == NULL)
  		return (B_FALSE);
  
-@@ -422,13 +595,27 @@
+@@ -422,13 +595,27 @@ nfs_commit_shares(void)
  {
  	struct pidfh *pfh;
  	pid_t mountdpid;
 +	int res = SA_OK;
- 
--start:
++
 +	if (sharedb) {
 +		/* If ShareDB in use, close the database handle so any cached changes are flushed */
 +		res = sharedb->close(sharedb);
@@ -273,7 +271,8 @@
 +		sharedb = NULL;
 +		sharedb_wrmode = 0;
 +	}
-+
+ 
+-start:
 + start:
  	pfh = pidfile_open(_PATH_MOUNTDPID, 0600, &mountdpid);
  	if (pfh != NULL) {
@@ -284,7 +283,7 @@
  	}
  	if (errno != EEXIST) {
  		/* Cannot open pidfile for some reason. */
-@@ -441,7 +628,7 @@
+@@ -441,7 +628,7 @@ nfs_commit_shares(void)
  	}
  	/* We have mountd(8) PID in mountdpid variable. */
  	kill(mountdpid, SIGHUP);

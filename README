@@ -15,12 +15,26 @@ made the time go from 41 seconds to 2.7s.
 
 The project consists of three parts:
 
-1. share.c - a small CLI utility to update/view sharedb files
-2. zfs-sharedb.patch - a patch for libshare in ZFS to make it update DB files
-3. mountd.patch - a patch for mountd to make it read DB files
+1. share - a small CLI utility to update/view sharedb files
+2. A patch for mountd to make it read DB files
+3. A patch for libshare in ZFS to make it update DB files
 
-There are two versions of the patch (13.2/zfs-sharedb.patch for 13.2-RELEASE)
-and zfs-sharedb.patch for CURRENT.
+
+Build and install "share" with "make install-share"
+
+There are two slightly different versions of the patches in
+the subdirectory Patches:
+
+- One for FreeBSD 14/CURRENT
+- One for FreeBSD 13.2-RELEASE. 
+
+Apply the patches with "make SRCDIR=/usr/src apply-patches".
+Build and install libzfs.so.4 into /lib and mountd into /usr/sbin with:
+
+make install-mountd
+make install-libzfs
+
+(Building libzfs also builds mountd since it runs "make -DNO_CLEAR buildworld"...
 
 
 The patch to zfs enables updating of the database files when

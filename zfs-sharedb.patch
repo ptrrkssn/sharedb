@@ -1,83 +1,59 @@
 diff --git a/sys/contrib/openzfs/lib/libshare/os/freebsd/nfs.c b/sys/contrib/openzfs/lib/libshare/os/freebsd/nfs.c
-index 521631c51f07..b8dad410c24f 100644
+index 97092bdc0..7c6594207 100644
 --- a/sys/contrib/openzfs/lib/libshare/os/freebsd/nfs.c
 +++ b/sys/contrib/openzfs/lib/libshare/os/freebsd/nfs.c
-@@ -41,6 +41,8 @@ __FBSDID("$FreeBSD$");
- #include <string.h>
- #include <unistd.h>
- #include <libintl.h>
-+#include <db.h>
-+#include <ctype.h>
- 
- #include <libshare.h>
- #include "libshare_impl.h"
-@@ -51,6 +53,10 @@ __FBSDID("$FreeBSD$");
+@@ -52,6 +52,17 @@ __FBSDID("$FreeBSD$");
  #define	MAXLINESIZE	(PATH_MAX + OPTSSIZE)
  #define	ZFS_EXPORTS_FILE	"/etc/zfs/exports"
  #define	ZFS_EXPORTS_LOCK	ZFS_EXPORTS_FILE".lock"
-+#define	ZFS_EXPORTSDB_FILE	"/etc/zfs/exports.db"
++#define ZFS_EXPORTSDB_FILE	"/etc/zfs/exports.db"
 +
-+DB *sharedb = NULL;
-+int sharedb_wrmode = 0;
++#include <sys/types.h>
++#include <db.h>
++#include <fcntl.h>
++#include <limits.h>
++
++
++static DB *sharedb = NULL;
++static int sharedb_wrmode = 0;
++
  
- /*
-  * This function translates options to a format acceptable by exports(5), eg.
-@@ -71,16 +77,18 @@ __FBSDID("$FreeBSD$");
-  *	ro, maproot, mapall, mask, network, sec, alldirs, public, webnfs,
-  *	index, quiet
-  */
--static int
--translate_opts(const char *shareopts, FILE *out)
-+static char *
-+translate_opts_impl(const char *shareopts,
-+		    char *newopts, size_t newsize)
- {
- 	static const char *const known_opts[] = { "ro", "maproot", "mapall",
- 	    "mask", "network", "sec", "alldirs", "public", "webnfs", "index",
- 	    "quiet" };
--	char oldopts[OPTSSIZE], newopts[OPTSSIZE];
-+	char oldopts[OPTSSIZE];
+ static sa_fstype_t *nfs_fstype;
+ 
+@@ -166,13 +177,18 @@ translate_opts(const char *shareopts)
  	char *o, *s = NULL;
  	unsigned int i;
  	size_t len;
+-
 +	int notfirst = 0;
- 
++	
  	strlcpy(oldopts, shareopts, sizeof (oldopts));
  	newopts[0] = '\0';
-@@ -88,20 +96,80 @@ translate_opts(const char *shareopts, FILE *out)
+ 	s = oldopts;
  	while ((o = strsep(&s, "-, ")) != NULL) {
  		if (o[0] == '\0')
  			continue;
 +		if (notfirst)
-+			strlcat(newopts, " ", newsize);
++			strlcat(newopts, " ", sizeof (newopts));
 +		else
 +			notfirst = 1;
- 		for (i = 0; i < ARRAY_SIZE(known_opts); ++i) {
+ 		for (i = 0; known_opts[i] != NULL; i++) {
  			len = strlen(known_opts[i]);
  			if (strncmp(known_opts[i], o, len) == 0 &&
- 			    (o[len] == '\0' || o[len] == '=')) {
--				strlcat(newopts, "-", sizeof (newopts));
-+				strlcat(newopts, "-", newsize);
- 				break;
+@@ -182,7 +198,9 @@ translate_opts(const char *shareopts)
  			}
  		}
--		strlcat(newopts, o, sizeof (newopts));
--		strlcat(newopts, " ", sizeof (newopts));
-+		strlcat(newopts, o, newsize);
+ 		strlcat(newopts, o, sizeof (newopts));
++#if 0
+ 		strlcat(newopts, " ", sizeof (newopts));
++#endif
  	}
-+	return newopts;
-+}
-+
-+static int
-+translate_opts(const char *shareopts, FILE *out) {
-+	char newopts[OPTSSIZE];
-+	
-+	if (translate_opts_impl(shareopts, newopts, sizeof(newopts)) == NULL)
-+		return -1;
- 	return (fputs(newopts, out));
+ 	return (newopts);
+ }
+@@ -272,11 +290,105 @@ nfs_copy_entries(char *filename, const char *mountpoint)
+ 	return (error);
  }
  
-+
 +static size_t
 +fix_multiline(size_t size,
 +	      void *data) {
@@ -105,7 +81,7 @@ index 521631c51f07..b8dad410c24f 100644
 +				++i;
 +			else {
 +				int j, len;
-+
++				
 +				buf[i] = '\0';
 +
 +				/* Remove redundant leading SPC */
@@ -126,192 +102,193 @@ index 521631c51f07..b8dad410c24f 100644
 +}
 +
  static int
- nfs_enable_share_impl(sa_share_impl_t impl_share, FILE *tmpfile)
- {
-@@ -132,6 +200,53 @@ nfs_enable_share_impl(sa_share_impl_t impl_share, FILE *tmpfile)
- static int
  nfs_enable_share(sa_share_impl_t impl_share)
  {
+-	char *filename = NULL;
+ 	int error;
++	char *filename = NULL;
++	char *shareopts = FSINFO(impl_share, nfs_fstype)->shareopts;
++	int res;
++
++	if (strcmp(shareopts, "on") == 0)
++		shareopts = "";
++
 +	if (sharedb && !sharedb_wrmode) {
-+                if (sharedb->close(sharedb) < 0) {
-+			fprintf(stderr, "nfs_enable_share: sharedb(\"%s\")->close: %s\n",
-+				ZFS_EXPORTSDB_FILE, strerror(errno));
-+                        return (SA_SYSTEM_ERR);
-+                }
-+                sharedb = NULL;
-+                sharedb_wrmode = 0;
-+        }
-+        if (!sharedb) {
-+                sharedb = dbopen(ZFS_EXPORTSDB_FILE, O_RDWR|O_EXLOCK, 0600, DB_BTREE, NULL);
-+                if (!sharedb) {
-+                        if (errno != ENOENT) {
-+                                fprintf(stderr, "nfs_enable_share: dbopen(\"%s\", O_RDWR|O_EXLOCK): %s\n",
-+                                        ZFS_EXPORTSDB_FILE, strerror(errno));
-+                                return (SA_SYSTEM_ERR);
-+                        }
-+                }
-+        }
++		res = sharedb->close(sharedb);
++		if (res < 0) {
++			fprintf(stderr, "nfs_enable_share: sharedb(\"%s\")->close: %s\n", ZFS_EXPORTSDB_FILE, strerror(errno));
++			return (SA_SYSTEM_ERR);
++		}
++		sharedb = NULL;
++		sharedb_wrmode = 0;
++	}
++	if (!sharedb) {
++		sharedb = dbopen(ZFS_EXPORTSDB_FILE, O_RDWR|O_EXLOCK, 0600, DB_BTREE, NULL);
++		if (!sharedb) {
++			if (errno != ENOENT) {
++				fprintf(stderr, "nfs_enable_share: dbopen(\"%s\", O_RDWR|O_EXLOCK): %s\n",
++					ZFS_EXPORTSDB_FILE, strerror(errno));
++				return (SA_SYSTEM_ERR);
++			}
++		}
++	}
 +	if (sharedb) {
-+                DBT k, d;
-+		const char *shareopts = impl_share->sa_shareopts;
-+		char newopts[OPTSSIZE];
-+
-+
-+		if (strcmp(shareopts, "on") == 0)
-+			shareopts = "";
-+
-+                sharedb_wrmode = 1;
-+
-+                k.data = (void *) impl_share->sa_mountpoint;
-+                k.size = strlen(k.data);
-+
-+                d.data = translate_opts_impl(shareopts, newopts, sizeof(newopts));
-+                d.size = strlen(d.data);
-+
-+                d.size = fix_multiline(d.size, d.data);
-+
-+                if (sharedb->put(sharedb, &k, &d, 0) < 0) {
-+                        fprintf(stderr, "nfs_enable_share: sharedb(\"%s\")->put(\"%s\"): %s\n",
-+                                ZFS_EXPORTSDB_FILE, (char *) k.data, strerror(errno));
-+                        return (SA_SYSTEM_ERR);
-+                }
-+
-+                return (SA_OK);
-+        }
-+
- 	return (nfs_toggle_share(
- 	    ZFS_EXPORTS_LOCK, ZFS_EXPORTS_FILE, NULL, impl_share,
- 	    nfs_enable_share_impl));
-@@ -147,6 +262,42 @@ nfs_disable_share_impl(sa_share_impl_t impl_share, FILE *tmpfile)
- static int
- nfs_disable_share(sa_share_impl_t impl_share)
++		DBT k, d;
++		
++		sharedb_wrmode = 1;
++		
++		k.data = impl_share->sa_mountpoint;
++		k.size = strlen(k.data);
++		
++		d.data = translate_opts(shareopts);
++		d.size = strlen(d.data);
++		
++		d.size = fix_multiline(d.size, d.data);
++		
++		res = sharedb->put(sharedb, &k, &d, 0);
++		if (res < 0) {
++			fprintf(stderr, "nfs_enable_share: sharedb(\"%s\")->put(\"%s\"): %s\n",
++				ZFS_EXPORTSDB_FILE, (char *) k.data, strerror(errno));
++			return (SA_SYSTEM_ERR);
++		}
++		
++		return (SA_OK);
++	}
+ 
+ 	if ((filename = nfs_init_tmpfile()) == NULL)
+ 		return (SA_SYSTEM_ERR);
+@@ -305,9 +417,6 @@ nfs_enable_share(sa_share_impl_t impl_share)
+ 		nfs_exports_unlock();
+ 		return (SA_SYSTEM_ERR);
+ 	}
+-	char *shareopts = FSINFO(impl_share, nfs_fstype)->shareopts;
+-	if (strcmp(shareopts, "on") == 0)
+-		shareopts = "";
+ 
+ 	if (fprintf(fp, "%s\t%s\n", impl_share->sa_mountpoint,
+ 	    translate_opts(shareopts)) < 0) {
+@@ -337,6 +446,44 @@ nfs_disable_share(sa_share_impl_t impl_share)
  {
+ 	int error;
+ 	char *filename = NULL;
++	int res;
++
 +	if (sharedb && !sharedb_wrmode) {
-+                if (sharedb->close(sharedb) < 0) {
++		/* ShareDB open for ReadOnly, reopen for ReadWrite */
++		res = sharedb->close(sharedb);
++		if (res < 0) {
 +			fprintf(stderr, "nfs_disable_share: sharedb(\"%s\")->close: %s\n",
 +				ZFS_EXPORTSDB_FILE, strerror(errno));
-+                        return (SA_SYSTEM_ERR);
-+                }
-+                sharedb = NULL;
-+                sharedb_wrmode = 0;
-+        }
-+        if (!sharedb) {
-+                sharedb = dbopen(ZFS_EXPORTSDB_FILE, O_RDWR|O_EXLOCK, 0600, DB_BTREE, NULL);
-+                if (!sharedb) {
-+                        if (errno != ENOENT) {
-+                                fprintf(stderr, "nfs_disable_share: dbopen(\"%s\", O_RDWR|O_EXLOCK): %s\n",
-+                                        ZFS_EXPORTSDB_FILE, strerror(errno));
-+                                return (SA_SYSTEM_ERR);
-+                        }
-+                }
-+        }
++			return (SA_SYSTEM_ERR);
++		}
++		sharedb = NULL;
++		sharedb_wrmode = 0;
++	}
++	if (!sharedb) {
++		sharedb = dbopen(ZFS_EXPORTSDB_FILE, O_RDWR|O_EXLOCK, 0600, DB_BTREE, NULL);
++		if (!sharedb) {
++			if (errno != ENOENT) {
++				fprintf(stderr, "nfs_disable_share: dbopen(\"%s\", O_RDWR|O_CREAT|O_EXLOCK): %s\n", ZFS_EXPORTSDB_FILE, strerror(errno));
++				return (SA_SYSTEM_ERR);
++			}
++		}
++	}
 +	if (sharedb) {
-+                DBT k;
++		DBT k;
 +		
-+                sharedb_wrmode = 1;
-+
-+                k.data = (void *) impl_share->sa_mountpoint;
-+                k.size = strlen(k.data);
-+
-+                if (sharedb->del(sharedb, &k,0) < 0) {
-+                        fprintf(stderr, "nfs_disable_share: sharedb(\"%s\")->del(\"%s\"): %s\n",
-+                                ZFS_EXPORTSDB_FILE, (char *) k.data, strerror(errno));
-+                        return (SA_SYSTEM_ERR);
-+                }
-+
-+                return (SA_OK);
-+        }
-+
- 	return (nfs_toggle_share(
- 	    ZFS_EXPORTS_LOCK, ZFS_EXPORTS_FILE, NULL, impl_share,
- 	    nfs_disable_share_impl));
-@@ -155,6 +306,29 @@ nfs_disable_share(sa_share_impl_t impl_share)
++		sharedb_wrmode = 1;	
++		k.data = impl_share->sa_mountpoint;
++		k.size = strlen(k.data);
++		
++		res = sharedb->del(sharedb, &k, 0);
++		if (res < 0) {
++			fprintf(stderr, "nfs_disable_share: sharedb(\"%s\")->del(\"%s\"): %s\n",
++				ZFS_EXPORTSDB_FILE, (char *) k.data, strerror(errno));
++			return (SA_SYSTEM_ERR);
++		}
++		
++		return (SA_OK);
++	}
+ 
+ 	if ((filename = nfs_init_tmpfile()) == NULL)
+ 		return (SA_SYSTEM_ERR);
+@@ -364,12 +511,38 @@ nfs_disable_share(sa_share_impl_t impl_share)
  static boolean_t
  nfs_is_shared(sa_share_impl_t impl_share)
  {
++	char *mntpoint = impl_share->sa_mountpoint;
+ 	char *s, last, line[MAXLINESIZE];
+ 	size_t len;
+-	char *mntpoint = impl_share->sa_mountpoint;
+ 	size_t mntlen = strlen(mntpoint);
++	FILE *fp;
++	
 +	if (!sharedb) {
-+                sharedb = dbopen(ZFS_EXPORTSDB_FILE, O_RDONLY|O_SHLOCK, 0, DB_BTREE, NULL);
-+                sharedb_wrmode = 0;
-+                if (!sharedb && errno != ENOENT) {
-+                        fprintf(stderr, "nfs_is_shared: dbopen(\"%s\", O_RDONLY|O_SHLOCK): %s\n",
-+                                ZFS_EXPORTSDB_FILE, strerror(errno));
-+                        return (SA_SYSTEM_ERR);
-+                }
-+        }
-+        if (sharedb) {
-+                DBT k, d;
-+                int res;
++		sharedb = dbopen(ZFS_EXPORTSDB_FILE, O_RDONLY|O_SHLOCK, 0, DB_BTREE, NULL);
++		sharedb_wrmode = 0;
++		if (!sharedb && errno != ENOENT) {
++			fprintf(stderr, "dbopen(\"%s\", O_RDONLY|O_SHLOCK): %s\n",
++				ZFS_EXPORTSDB_FILE, strerror(errno));
++			return (SA_SYSTEM_ERR);
++		}
++	}
++	if (sharedb) {
++		DBT k, d;
++		int res;
 +
-+                k.data = (void *) impl_share->sa_mountpoint;
-+                k.size = strlen(k.data);
-+
-+                res = sharedb->get(sharedb, &k, &d, 0);
-+                if (res < 0)
-+                        fprintf(stderr, "nfs_is_shared: sharedb(\"%s\")->get(\"%s\"): %s\n",
-+                                ZFS_EXPORTSDB_FILE, (char *) k.data, strerror(errno));
-+                return (res == 0 ? B_TRUE : B_FALSE);
-+        }
-+
- 	return (nfs_is_shared_impl(ZFS_EXPORTS_FILE, impl_share));
- }
++		k.data = mntpoint;
++		k.size = mntlen;
++		
++		res = sharedb->get(sharedb, &k, &d, 0);
++		if (res < 0)
++			fprintf(stderr, "sharedb(\"%s\")->get(\"%s\"): %s\n",
++				ZFS_EXPORTSDB_FILE, (char *) k.data, strerror(errno));
++		if (res == 0)
++			return (B_TRUE);
++		return (B_FALSE);
++	}
  
-@@ -173,13 +347,27 @@ nfs_commit_shares(void)
+-	FILE *fp = fopen(ZFS_EXPORTS_FILE, "re");
++	fp = fopen(ZFS_EXPORTS_FILE, "re");
+ 	if (fp == NULL)
+ 		return (B_FALSE);
+ 
+@@ -422,13 +595,27 @@ nfs_commit_shares(void)
  {
  	struct pidfh *pfh;
  	pid_t mountdpid;
 +	int res = SA_OK;
 +
-+	
 +	if (sharedb) {
-+                /* If ShareDB in use, close the database handle so any cached changes are flushed */
-+                if (sharedb->close(sharedb) < 0) {
-+                        fprintf(stderr, "nfs_commit_shares: sharedb(\"%s\")->close: %s\n",
-+                                ZFS_EXPORTSDB_FILE, strerror(errno));
-+                        res = SA_SYSTEM_ERR;
-+                }
-+
-+                sharedb = NULL;
-+                sharedb_wrmode = 0;
-+        }
++		/* If ShareDB in use, close the database handle so any cached changes are flushed */
++		res = sharedb->close(sharedb);
++		if (res < 0) {
++			fprintf(stderr, "nfs_commit_shares: sharedb(\"%s\")->close: %s\n",
++				ZFS_EXPORTSDB_FILE, strerror(errno));
++			res = SA_SYSTEM_ERR;
++		}
++		
++		sharedb = NULL;
++		sharedb_wrmode = 0;
++	}
  
- start:
+-start:
++ start:
  	pfh = pidfile_open(_PATH_MOUNTDPID, 0600, &mountdpid);
  	if (pfh != NULL) {
  		/* mountd(8) is not running. */
  		pidfile_remove(pfh);
 -		return (SA_OK);
-+		return (res);
++		return res;
  	}
  	if (errno != EEXIST) {
  		/* Cannot open pidfile for some reason. */
-@@ -192,12 +380,29 @@ nfs_commit_shares(void)
+@@ -441,7 +628,7 @@ nfs_commit_shares(void)
  	}
  	/* We have mountd(8) PID in mountdpid variable. */
  	kill(mountdpid, SIGHUP);
 -	return (SA_OK);
-+	return (res);
++	return res;
  }
  
- static void
- nfs_truncate_shares(void)
- {
-+	if (sharedb) {
-+                /* If ShareDB in use, close the database handle so any cached changes are flushed */
-+                if (sharedb->close(sharedb) < 0) {
-+                        fprintf(stderr, "nfs_truncate_shares: sharedb(\"%s\")->close: %s\n",
-+                                ZFS_EXPORTSDB_FILE, strerror(errno));
-+                }
-+
-+                sharedb = NULL;
-+                sharedb_wrmode = 0;
-+		
-+		if (truncate(ZFS_EXPORTSDB_FILE, 0) < 0) {
-+                        fprintf(stderr, "nfs_truncate_shares: truncate(\"%s\"): %s\n",
-+                                ZFS_EXPORTSDB_FILE, strerror(errno));
-+		}
-+		return;
-+        }
-+
- 	nfs_reset_shares(ZFS_EXPORTS_LOCK, ZFS_EXPORTS_FILE);
- }
- 
+ static const sa_share_ops_t nfs_shareops = {
