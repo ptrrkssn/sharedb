@@ -22,11 +22,13 @@ The project consists of three parts:
 
 Build and install "share" with "make install-share"
 
-There are two slightly different versions of the patches in
-the subdirectory Patches:
+There are slightly different versions of the zfs patch in
+the subdirectory Patches but the Makefile will automatically
+apply the correct version based on the FreeBSD source in /usr/src:
 
-- One for FreeBSD 14/CURRENT
-- One for FreeBSD 13.2-RELEASE. 
+- FreeBSD 14/CURRENT
+- FreeBSD 13-STABLE
+- FreeBSD 13.2-RELEASE. 
 
 Apply the patches with "make SRCDIR=/usr/src apply-patches".
 Build and install libzfs.so.4 into /lib and mountd into /usr/sbin with:
