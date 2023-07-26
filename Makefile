@@ -42,7 +42,10 @@ $(SHAREMANDIR)/share.1.gz: share.man
 	gzip <share.man >$(SHAREMANDIR)/share.1.gz
 
 clean:
-	rm -f *~ *.o share \#* core *.patch
+	rm -f *~ *.o share \#* core
+
+distclean: clean
+	rm -f *.patch
 
 
 patches: zfs-sharedb.patch mountd-sharedb.patch
