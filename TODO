@@ -1,4 +1,3 @@
 1. Investigate use of the more modern BerkeleyDB versions.
-2. Does the code need to be MT-safe (multithreading in the zfs command)
-3. Generalize the code into a shared library?
-4. Update 'share' to import whole text files (/etc/exports, /etc/zfs/exports)
+2. Generalize the code into a shared library?
+3. Update 'share' to import whole text files (/etc/exports, /etc/zfs/exports)

@@ -100,5 +100,5 @@ clean:
 distclean: clean
 	rm -f *.patch mountd libzfs.so.4
 
-push: clean
+push: distclean
 	git add -A && git commit -a && git push
