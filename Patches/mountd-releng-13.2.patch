@@ -1,5 +1,5 @@
 diff --git a/usr.sbin/mountd/mountd.c b/usr.sbin/mountd/mountd.c
-index d985dd00acf8..21119c0fa254 100644
+index d985dd00acf8..770afcc75608 100644
 --- a/usr.sbin/mountd/mountd.c
 +++ b/usr.sbin/mountd/mountd.c
 @@ -73,8 +73,10 @@ __FBSDID("$FreeBSD$");
@@ -299,7 +299,7 @@ index d985dd00acf8..21119c0fa254 100644
  /*
   * Read the exports file(s) and call get_exportlist_one() for each line.
   */
-@@ -2103,15 +2222,49 @@ read_exportfile(int passno)
+@@ -2103,15 +2222,51 @@ read_exportfile(int passno)
  	 */
  	done = 0;
  	for (i = 0; exnames[i] != NULL; i++) {
@@ -314,7 +314,7 @@ index d985dd00acf8..21119c0fa254 100644
 +		snprintf(dbpath, sizeof(dbpath), "%s.db", exnames[i]);
 +		if (stat(dbpath, &sd) == 0 && stat(exnames[i], &sf) == 0 &&
 +		    timespec_compare(&sd.st_mtim, &sf.st_mtim) > 0)
-+			syslog(LOG_WARNING, "unused %s is newer than %s",
++			syslog(LOG_WARNING, "Warning: %s (unused) is newer than %s",
 +			       exnames[i], dbpath);
 +		
 +		sdb = dbopen(dbpath, O_RDONLY|O_SHLOCK, 0, DB_BTREE, NULL);
@@ -326,7 +326,8 @@ index d985dd00acf8..21119c0fa254 100644
 +			get_exportlist_one(passno, sdb);
 +			sdb->close(sdb);
 +			done++;
-+			syslog(passno ? LOG_INFO : LOG_NOTICE, "%s: scanned %d, enabled %d, disabled %d",
++			syslog(passno ? LOG_INFO : LOG_NOTICE,
++			       "%s: scanned %d, enabled %d, disabled %d",
 +			       dbpath, n_scanned, n_enabled, n_disabled);
 +			continue;
 +		}
@@ -345,12 +346,13 @@ index d985dd00acf8..21119c0fa254 100644
 +		get_exportlist_one(passno, NULL);
  		fclose(exp_file);
  		done++;
-+		syslog(passno ? LOG_INFO : LOG_NOTICE, "%s: scanned %d, enabled %d, disabled %d",
++		syslog(passno ? LOG_INFO : LOG_NOTICE,
++		       "%s: scanned %d, enabled %d, disabled %d",
 +		       exnames[i], n_scanned, n_enabled, n_disabled);
  	}
  	if (done == 0) {
  		syslog(LOG_ERR, "can't open any exports file");
-@@ -2402,6 +2555,7 @@ delete_export(struct iovec *iov, int iovlen, struct statfs *fsp, char *errmsg)
+@@ -2402,6 +2557,7 @@ delete_export(struct iovec *iov, int iovlen, struct statfs *fsp, char *errmsg)
  		    "can't delete exports for %s: %m %s",
  		    fsp->f_mntonname, errmsg);
  	}
@@ -358,7 +360,7 @@ index d985dd00acf8..21119c0fa254 100644
  }
  
  /*
-@@ -2441,11 +2595,14 @@ getexp_err(struct exportlist *ep, struct grouplist *grp, const char *reason)
+@@ -2441,11 +2597,14 @@ getexp_err(struct exportlist *ep, struct grouplist *grp, const char *reason)
  	struct grouplist *tgrp;
  
  	if (!(opt_flags & OP_QUIET)) {
@@ -377,7 +379,7 @@ index d985dd00acf8..21119c0fa254 100644
  	}
  	if (ep && (ep->ex_flag & EX_LINKED) == 0)
  		free_exp(ep);
-@@ -3295,6 +3452,7 @@ do_mount(struct exportlist *ep, struct grouplist *grp, uint64_t exflags,
+@@ -3295,6 +3454,7 @@ do_mount(struct exportlist *ep, struct grouplist *grp, uint64_t exflags,
  		if (ai == NULL)
  			done = TRUE;
  	}
@@ -385,7 +387,7 @@ index d985dd00acf8..21119c0fa254 100644
  	if (cp)
  		*cp = savedc;
  error_exit:
-@@ -3498,6 +3656,7 @@ get_line(void)
+@@ -3498,6 +3658,7 @@ get_line(void)
  	do {
  		if ((p = fgetln(exp_file, &len)) == NULL)
  			return (0);
@@ -393,7 +395,7 @@ index d985dd00acf8..21119c0fa254 100644
  		cp = p + len - 1;
  		cont_line = 0;
  		while (cp >= p &&
-@@ -3521,6 +3680,7 @@ get_line(void)
+@@ -3521,6 +3682,7 @@ get_line(void)
  		totlen += len;
  		line[totlen] = '\0';
  	} while (totlen == 0 || cont_line);
@@ -401,7 +403,7 @@ index d985dd00acf8..21119c0fa254 100644
  	return (1);
  }
  
-@@ -3930,9 +4090,11 @@ sa_rawaddr(struct sockaddr *sa, int *nbytes) {
+@@ -3930,9 +4092,11 @@ sa_rawaddr(struct sockaddr *sa, int *nbytes) {
  }
  
  static void
