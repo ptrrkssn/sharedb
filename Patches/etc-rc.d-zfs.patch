@@ -1,0 +1,16 @@
+--- etc/rc.d/zfs.ORIG	2023-07-27 14:54:38.086847000 +0200
++++ etc/rc.d/zfs	2023-07-27 14:57:04.883960000 +0200
+@@ -27,8 +27,12 @@
+ zfs_start_main()
+ {
+ 	zfs mount -va
++	if [ -f /etc/zfs/exports.db ]; then
++		rm -f /etc/zfs/exports.db
++		touch /etc/zfs/exports.db
++	fi
+ 	zfs share -a
+-	if [ ! -r /etc/zfs/exports ]; then
++	if [ ! -r /etc/zfs/exports -a ! -r /etc/zfs/exports.db ]; then
+ 		touch /etc/zfs/exports
+ 	fi
+ }

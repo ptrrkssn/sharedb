@@ -18,7 +18,7 @@ The project consists of three parts:
 1. share - a small CLI utility to update/view sharedb files
 2. A patch for mountd to make it read DB files
 3. A patch for libshare in ZFS to make it update DB files
-
+4. A patch for /etc/rc.d/zfs handling exports.db
 
 Build and install "share" with "make install-share"
 
@@ -47,7 +47,7 @@ you use:
 It will check if the DB-based Btree /etc/zfs/exports.db file exists,
 and then use the new code automatically.
 
-If it doesn't exist then it will use to old text-based /etc/zfs/exports file.
+If it doesn't exist then it will use the old text-based /etc/zfs/exports file.
 
 You can use ";" to separate multiline options per above like this:
 
@@ -71,7 +71,8 @@ then you can use "makemap" to populate DB files like this:
   makemap -f btree /etc/zfs/exports.db </etc/zfs/exports
 
 There is no need to use makemap for /etc/zfs/exports.db if you use the
-zfs patch though.
+zfs patch though. To enable DB files usage you must first create an
+empty file - touch /etc/zfs/exports.db
 
 
 The 'share' CLI utility too can be used to view and update the DB files.

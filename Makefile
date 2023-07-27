@@ -26,11 +26,10 @@ NOCLEAN= # -DNO_CLEAN
 
 build: share mountd libzfs.so.4
 
-apply-patches: patch-mountd patch-zfs
-
 all: apply-patches build-all
 
 
+apply-patches: patch-mountd patch-libzfs patch-rcdzfs
 
 patches: mountd-sharedb.patch zfs-sharedb.patch
 
@@ -41,13 +40,16 @@ zfs-sharedb.patch: $(SRCDIR)/$(LIBZFSSRCDIR)/nfs.c
 	(cd $(SRCDIR) && git diff $(LIBZFSSRCDIR)/nfs.c) >zfs-sharedb.patch
 
 
-patch-zfs:
-	(cd $(SRCDIR)/$(LIBZFSSRCDIR) && git checkout nfs.c) && \
-	patch -sNd $(SRCDIR) <"Patches/zfs-`git --git-dir=$(SRCDIR)/.git branch --show-current|tr '/' '-'`.patch"
-
 patch-mountd:
 	(cd $(SRCDIR)/$(MOUNTDSRCDIR) && git checkout mountd.c) && \
 	patch -sNd $(SRCDIR) <"Patches/mountd-`git --git-dir=$(SRCDIR)/.git branch --show-current|tr '/' '-'`.patch"
+
+patch-libzfs:
+	(cd $(SRCDIR)/$(LIBZFSSRCDIR) && git checkout nfs.c) && \
+	patch -sNd $(SRCDIR) <"Patches/zfs-`git --git-dir=$(SRCDIR)/.git branch --show-current|tr '/' '-'`.patch"
+
+patch-rcdzfs:
+	patch -sNd /etc/rc.d <"Patches/etc-rc.d-zfs.patch"
 
 
 share: $(SHAREOBJS)
