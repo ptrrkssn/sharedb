@@ -29,7 +29,7 @@ build: share mountd libzfs.so.4
 all: apply-patches build-all
 
 
-apply-patches: patch-mountd patch-libzfs patch-rcdzfs
+apply-patches: patch-mountd patch-libzfs # patch-rcdzfs
 
 patches: mountd-sharedb.patch zfs-sharedb.patch
 
