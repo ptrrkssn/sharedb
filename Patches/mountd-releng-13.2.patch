@@ -1,5 +1,5 @@
 diff --git a/usr.sbin/mountd/mountd.c b/usr.sbin/mountd/mountd.c
-index 1924284bb93a..f9367ab5a6b5 100644
+index 1924284bb93a..35e6f2011dac 100644
 --- a/usr.sbin/mountd/mountd.c
 +++ b/usr.sbin/mountd/mountd.c
 @@ -73,8 +73,10 @@ __FBSDID("$FreeBSD$");
@@ -27,7 +27,7 @@ index 1924284bb93a..f9367ab5a6b5 100644
  static int dir_only = 1;
  static int dolog = 0;
 -static int got_sighup = 0;
-+static volatile sig_atomic_t got_sighup = 0;
++static _Atomic(int) got_sighup = 0;
  static int xcreated = 0;
  
  static char *svcport_str = NULL;
