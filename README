@@ -1,6 +1,6 @@
 # sharedb
 
-Version: 1.1 (2023-07-24)
+Version: 1.1 (2024-07-18)
 Author:  Peter Eriksson <pen@lysator.liu.se>
 
 The files in this repo can be used to implement DB-based (B-Tree)
@@ -29,6 +29,7 @@ apply the correct version based on the FreeBSD source in /usr/src:
 - FreeBSD 14/CURRENT
 - FreeBSD 13-STABLE
 - FreeBSD 13.2-RELEASE. 
+- FreeBSD 13.3-RELEASE. 
 
 Apply the patches with "make SRCDIR=/usr/src apply-patches".
 Build and install libzfs.so.4 into /lib and mountd into /usr/sbin with:
@@ -55,7 +56,7 @@ You can use ";" to separate multiline options per above like this:
 
 
 The patch to mountd adds reading the DB files in preference to the text
-versions if it finds then when scanning the list of exports sources.
+versions if it finds it when scanning the list of exports sources.
 
 
 
