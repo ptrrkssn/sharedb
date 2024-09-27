@@ -69,7 +69,7 @@ libzfs.so.4: $(OBJDIR)/$(LIBZFSOBJDIR)/libzfs.so.4
 	cp $(OBJDIR)/$(LIBZFSOBJDIR)/libzfs.so.4 .
 
 $(OBJDIR)/$(LIBZFSOBJDIR)/libzfs.so.4: $(SRCDIR)/$(LIBZFSSRCDIR)/nfs.c
-	cd $(SRCDIR) && make $(NOCLEAN) -j$(NCPU) buildworld
+	cd $(SRCDIR)/cddl && make $(NOCLEAN) -j$(NCPU) # buildworld
 
 
 build-share: share
