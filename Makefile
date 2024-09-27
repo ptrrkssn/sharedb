@@ -72,6 +72,22 @@ $(OBJDIR)/$(LIBZFSOBJDIR)/libzfs.so.4: $(SRCDIR)/$(LIBZFSSRCDIR)/nfs.c
 	cd $(SRCDIR) && make $(NOCLEAN) -j$(NCPU) buildworld
 
 
+build-share: share
+build-mountd: mountd
+build-libzfs: libzfs.so.4
+
+build-all: build-share build-mountd build-libzfs
+
+
+install-share: $(SHAREBINDIR)/share $(SHAREMANDIR)/share.1.gz
+
+$(SHAREBINDIR)/share: share
+	install share $(SHAREBINDIR)
+
+$(SHAREMANDIR)/share.1.gz: share.man
+	gzip <share.man >$(SHAREMANDIR)/share.1.gz
+
+
 install-libzfs: $(LIBZFSLIBDIR)/libzfs.so.4
 
 $(LIBZFSLIBDIR)/libzfs.so.4: $(OBJDIR)/$(LIBZFSOBJDIR)/libzfs.so.4
@@ -84,23 +100,12 @@ $(MOUNTDBINDIR)/mountd: $(OBJDIR)/$(MOUNTDOBJDIR)/mountd
 	install -b $(OBJDIR)/$(MOUNTDOBJDIR)/mountd $(MOUNTDBINDIR)
 
 
-
-install: install-share
-
-install-share: $(SHAREBINDIR)/share $(SHAREMANDIR)/share.1.gz
-
-$(SHAREBINDIR)/share: share
-	install share $(SHAREBINDIR)
-
-$(SHAREMANDIR)/share.1.gz: share.man
-	gzip <share.man >$(SHAREMANDIR)/share.1.gz
+install-all: install-share install-mountd install-libzfs
 
 
-clean:
-	rm -f *~ *.o share \#* core
-
-distclean: clean
-	rm -f *.patch mountd libzfs.so.4
+distclean clean:
+	@rm -vf share mountd libzfs.so.4
+	@find . \( -name '*~' -or -name '#*' -or -name '*.o' -or -name core \) -print0 | xargs -0 rm -vf
 
 push: distclean
 	git add -A && git commit -a && git push
